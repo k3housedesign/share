@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K1ハウス302号室 - 住居シェアリング管理</title>
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css">
+    <style>
+        :where([class^="ri-"])::before { content: "\f3c2"; }
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f9fafb;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .calendar-day:hover {
+            transform: scale(1.05);
+        }
+        .available {
+            background-color: rgba(74, 222, 128, 0.1);
+            color: #16a34a;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+        .unavailable {
+            background-color: rgba(156, 163, 175, 0.1);
+            color: #6b7280;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+        .reserved {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e7eb;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #2563eb;
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+        .tab-active {
+            color: #2563eb;
+            border-bottom: 2px solid #2563eb;
+        }
+        .message-bubble {
+            max-width: 80%;
+            padding: 10px 14px;
+            margin: 8px 0;
+            border-radius: 18px;
+        }
+        .message-sent {
+            background-color: #2563eb;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .message-received {
+            background-color: #f3f4f6;
+            color: #1f2937;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+        }
+    </style>
+    <script>tailwind.config={theme:{extend:{colors:{primary:'#2563eb',secondary:'#16a34a'},borderRadius:{'none':'0px','sm':'4px',DEFAULT:'8px','md':'12px','lg':'16px','xl':'20px','2xl':'24px','3xl':'32px','full':'9999px','button':'8px'}}}}</script>
+</head>
+<body class="min-h-screen">
+    <!-- ログインページ -->
+    <div id="login-page" class="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">K1ハウス302号室</h1>
+                <p class="text-gray-600">住居シェアリング管理システム</p>
+            </div>
+            
+            <div class="mb-6">
+                <div class="text-center mb-4">
+                    <div class="w-20 h-20 mx-auto bg-primary bg-opacity-10 rounded-full flex items-center justify-center">
+                        <i class="ri-lock-line ri-2x text-primary"></i>
+                    </div>
+                    <h2 class="mt-4 text-xl font-medium text-gray-800">ログイン</h2>
+                    <p class="mt-1 text-sm text-gray-600">アクセスするにはパスコードを入力してください</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="passcode" class="block text-sm font-medium text-gray-700 mb-1">パスコード</label>
+                        <input type="password" id="passcode" class="w-full px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="パスコードを入力">
+                        <p class="text-xs text-gray-500 mt-1">テスト用パスコード: 1234</p>
+                    </div>
+                    
+                    <button id="login-button" class="w-full bg-primary text-white py-3 rounded-button font-medium hover:bg-opacity-90 transition whitespace-nowrap">ログイン</button>
+                    
+                    <div class="relative flex items-center justify-center">
+                        <div class="h-px bg-gray-300 w-full"></div>
+                        <span class="px-2 bg-white text-sm text-gray-500">または</span>
+                        <div class="h-px bg-gray-300 w-full"></div>
+                    </div>
+                    
+                    <button class="w-full flex items-center justify-center gap-2 bg-[#06c755] text-white py-3 rounded-button font-medium hover:bg-opacity-90 transition whitespace-nowrap">
+                        <i class="ri-line-fill ri-lg"></i>
+                        <span>LINEで認証</span>
+                    </button>
+                </div>
+                
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-gray-600">アクセスについてのお問い合わせは、<br>オーナーまでLINEでご連絡ください。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- メインアプリ -->
+    <div id="app" class="hidden">
+        <!-- ヘッダー -->
+        <header class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4 border-b border-gray-200">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">K1ハウス302号室</h1>
+                        <p class="text-sm text-gray-600">東京世田谷区北沢1-19-15</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center px-3 py-1.5 bg-gray-100 rounded-full">
+                            <span id="status-indicator" class="status-indicator bg-green-500"></span>
+                            <span id="status-text" class="text-sm font-medium">現在利用可能</span>
+                        </div>
+                        <button id="logout-button" class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100" title="ログアウト">
+                            <i class="ri-logout-box-line ri-lg text-gray-600"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- ナビゲーション -->
+                <nav class="flex overflow-x-auto">
+                    <button class="nav-tab tab-active whitespace-nowrap px-4 py-4 text-sm font-medium" data-tab="calendar">
+                        <i class="ri-calendar-line mr-1"></i>カレンダー
+                    </button>
+                    <button class="nav-tab whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-600" data-tab="reservations">
+                        <i class="ri-bookmark-line mr-1"></i>予約管理
+                    </button>
+                    <button class="nav-tab whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-600" data-tab="guests">
+                        <i class="ri-user-line mr-1"></i>ゲスト管理
+                    </button>
+                    <button class="nav-tab whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-600" data-tab="settings">
+                        <i class="ri-settings-line mr-1"></i>設定・規約
+                    </button>
+                    <button class="nav-tab whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-600" data-tab="messages">
+                        <i class="ri-message-2-line mr-1"></i>メッセージ
+                        <span class="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">3</span>
+                    </button>
+                </nav>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- カレンダーセクション -->
+            <section id="calendar-section" class="tab-content">
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="flex items-center gap-2">
+                            <button id="prev-month" class="p-2 rounded-full hover:bg-gray-100">
+                                <i class="ri-arrow-left-s-line ri-lg"></i>
+                            </button>
+                            <h2 id="current-month" class="text-xl font-bold">2025年6月</h2>
+                            <button id="next-month" class="p-2 rounded-full hover:bg-gray-100">
+                                <i class="ri-arrow-right-s-line ri-lg"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center">
+                                <span class="status-indicator bg-green-500"></span>
+                                <span class="text-sm">利用可能</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="status-indicator bg-gray-400"></span>
+                                <span class="text-sm">利用不可</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="status-indicator bg-blue-500"></span>
+                                <span class="text-sm">予約済み</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-2 mb-2">
+                        <div class="text-center text-sm font-medium text-gray-600">日</div>
+                        <div class="text-center text-sm font-medium text-gray-600">月</div>
+                        <div class="text-center text-sm font-medium text-gray-600">火</div>
+                        <div class="text-center text-sm font-medium text-gray-600">水</div>
+                        <div class="text-center text-sm font-medium text-gray-600">木</div>
+                        <div class="text-center text-sm font-medium text-gray-600">金</div>
+                        <div class="text-center text-sm font-medium text-gray-600">土</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-7 gap-2" id="calendar-grid">
+                        <!-- カレンダーの日付はJSで動的に生成 -->
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-bold mb-4">今月の予定</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center p-3 border border-blue-200 rounded-lg bg-blue-50">
+                            <div class="w-2 h-10 bg-blue-500 rounded-full mr-4"></div>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <p class="font-medium">佐藤健太</p>
+                                    <p class="text-sm text-gray-600">6月15日〜6月17日</p>
+                                </div>
+                                <p class="text-sm text-gray-600">大学時代の友人</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center p-3 border border-green-200 rounded-lg bg-green-50">
+                            <div class="w-2 h-10 bg-green-500 rounded-full mr-4"></div>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <p class="font-medium">山田優子</p>
+                                    <p class="text-sm text-gray-600">6月22日〜6月24日</p>
+                                </div>
+                                <p class="text-sm text-gray-600">会社の同僚</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 予約管理セクション -->
+            <section id="reservations-section" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div class="border-b border-gray-200 mb-6">
+                        <div class="flex space-x-8">
+                            <button class="reservation-tab tab-active px-1 py-4 text-sm font-medium" data-reservation-tab="requests">予約リクエスト</button>
+                            <button class="reservation-tab px-1 py-4 text-sm font-medium text-gray-600" data-reservation-tab="approved">承認済み予約</button>
+                        </div>
+                    </div>
+                    
+                    <div id="requests-tab" class="reservation-content">
+                        <div class="space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center p-4 border rounded-lg hover:shadow-sm transition">
+                                <div class="flex items-center flex-1 mb-4 sm:mb-0">
+                                    <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-4">
+                                        <i class="ri-user-line ri-lg text-gray-600"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium">鈴木一郎</h4>
+                                        <p class="text-sm text-gray-600">6月28日〜6月30日 (2泊)</p>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-button font-medium hover:bg-red-600 transition whitespace-nowrap">拒否</button>
+                                    <button class="px-4 py-2 bg-primary text-white rounded-button font-medium hover:bg-opacity-90 transition whitespace-nowrap">承認</button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col sm:flex-row sm:items-center p-4 border rounded-lg hover:shadow-sm transition">
+                                <div class="flex items-center flex-1 mb-4 sm:mb-0">
+                                    <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-4">
+                                        <i class="ri-user-line ri-lg text-gray-600"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium">田中花子</h4>
+                                        <p class="text-sm text-gray-600">7月5日〜7月7日 (2泊)</p>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-button font-medium hover:bg-red-600 transition whitespace-nowrap">拒否</button>
+                                    <button class="px-4 py-2 bg-primary text-white rounded-button font-medium hover:bg-opacity-90 transition whitespace-nowrap">承認</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="approved-tab" class="reservation-content hidden">
+                        <div class="space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center p-4 border rounded-lg hover:shadow-sm transition">
+                                <div class="flex items-center flex-1 mb-4 sm:mb-0">
+                                    <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-4">
+                                        <i class="ri-user-line ri-lg text-gray-600"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium">佐藤健太</h4>
+                                        <p class="text-sm text-gray-600">6月15日〜6月17日 (2泊)</p>
+                                        <span class="inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full mt-1">承認済み</span>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-button font-medium hover:bg-red-600 transition whitespace-nowrap">キャンセル</button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col sm:flex-row sm:items-center p-4 border rounded-lg hover:shadow-sm transition">
+                                <div class="flex items-center flex-1 mb-4 sm:mb-0">
+                                    <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-4">
+                                        <i class="ri-user-line ri-lg text-gray-600"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-medium">山田優子</h4>
+                                        <p class="text-sm text-gray-600">6月22日〜6月24日 (2泊)</p>
+                                        <span class="inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full mt-1">承認済み</span>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-button font-medium hover:bg-red-600 transition whitespace-nowrap">キャンセル</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ゲスト管理セクション -->
+            <section id="guests-section" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-bold">承認済みゲスト</h3>
+                        <button class="flex items-center px-4 py-2 bg-primary text-white rounded-button font-medium hover:bg-opacity-90 transition whitespace-nowrap">
+                            <i class="ri-user-add-line mr-1"></i>
+                            新規ゲスト追加
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="border rounded-lg p-4 hover:shadow-sm transition">
+                            <div class="flex items-center mb-3">
+                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                    <i class="ri-user-line ri-lg text-gray-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">佐藤健太</h4>
+                                    <span class="inline-block px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">大学時代の友人</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 mb-3">
+                                <p>過去の利用: 3回</p>
+                                <p>最終利用: 2025年4月</p>
+                            </div>
+                            <div class="flex justify-end">
+                                <button class="px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                            </div>
+                        </div>
+                        
+                        <div class="border rounded-lg p-4 hover:shadow-sm transition">
+                            <div class="flex items-center mb-3">
+                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                    <i class="ri-user-line ri-lg text-gray-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">山田優子</h4>
+                                    <span class="inline-block px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">会社の同僚</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 mb-3">
+                                <p>過去の利用: 2回</p>
+                                <p>最終利用: 2025年5月</p>
+                            </div>
+                            <div class="flex justify-end">
+                                <button class="px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                            </div>
+                        </div>
+                        
+                        <div class="border rounded-lg p-4 hover:shadow-sm transition">
+                            <div class="flex items-center mb-3">
+                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                    <i class="ri-user-line ri-lg text-gray-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">高橋誠</h4>
+                                    <span class="inline-block px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">親戚</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 mb-3">
+                                <p>過去の利用: 1回</p>
+                                <p>最終利用: 2025年3月</p>
+                            </div>
+                            <div class="flex justify-end">
+                                <button class="px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                            </div>
+                        </div>
+                        
+                        <div class="border rounded-lg p-4 hover:shadow-sm transition">
+                            <div class="flex items-center mb-3">
+                                <div class="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                    <i class="ri-user-line ri-lg text-gray-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">中村美咲</h4>
+                                    <span class="inline-block px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">大学院の同期</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 mb-3">
+                                <p>過去の利用: 2回</p>
+                                <p>最終利用: 2025年2月</p>
+                            </div>
+                            <div class="flex justify-end">
+                                <button class="px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">詳細</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 設定・規約セクション -->
+            <section id="settings-section" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-4">設定・規約</h3>
+                    
+                    <div class="space-y-6">
+                        <div class="border-b pb-4">
+                            <button class="flex justify-between items-center w-full text-left" data-accordion="rules">
+                                <span class="font-medium">利用規約</span>
+                                <i class="ri-arrow-down-s-line ri-lg"></i>
+                            </button>
+                            <div class="accordion-content hidden pt-4">
+                                <div class="prose max-w-none text-gray-700">
+                                    <p>1. 本住居は個人的な知人間でのシェアリングであり、商業的な目的での利用は禁止します。</p>
+                                    <p>2. 利用者は部屋を清潔に保ち、退出時には原状回復を行ってください。</p>
+                                    <p>3. 近隣への騒音など迷惑行為は厳に慎んでください。</p>
+                                    <p>4. 備品の破損があった場合は速やかに連絡してください。</p>
+                                    <p>5. 鍵の複製は禁止します。</p>
+                                    <p>6. 第三者を部屋に招き入れる場合は事前に許可を得てください。</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border-b pb-4">
+                            <button class="flex justify-between items-center w-full text-left" data-accordion="checkin">
+                                <span class="font-medium">チェックイン/アウト設定</span>
+                                <i class="ri-arrow-down-s-line ri-lg"></i>
+                            </button>
+                            <div class="accordion-content hidden pt-4">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">チェックイン時間</label>
+                                        <select class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition pr-8">
+                                            <option>15:00</option>
+                                            <option>16:00</option>
+                                            <option>17:00</option>
+                                            <option>18:00</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">チェックアウト時間</label>
+                                        <select class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition pr-8">
+                                            <option>10:00</option>
+                                            <option>11:00</option>
+                                            <option>12:00</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-gray-700">鍵の受け渡し方法を表示</span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border-b pb-4">
+                            <button class="flex justify-between items-center w-full text-left" data-accordion="emergency">
+                                <span class="font-medium">緊急連絡先</span>
+                                <i class="ri-arrow-down-s-line ri-lg"></i>
+                            </button>
+                            <div class="accordion-content hidden pt-4">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">緊急連絡先 1</label>
+                                        <input type="text" value="佐々木 (オーナー代理): 090-1234-5678" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">緊急連絡先 2</label>
+                                        <input type="text" value="管理会社: 03-9876-5432" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">最寄りの警察署</label>
+                                        <input type="text" value="下北沢警察署: 03-3468-0110" class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border-b pb-4">
+                            <button class="flex justify-between items-center w-full text-left" data-accordion="guide">
+                                <span class="font-medium">施設利用ガイド</span>
+                                <i class="ri-arrow-down-s-line ri-lg"></i>
+                            </button>
+                            <div class="accordion-content hidden pt-4">
+                                <div class="prose max-w-none text-gray-700">
+                                    <p><strong>Wi-Fi情報</strong><br>SSID: K1House_302<br>パスワード: ********</p>
+                                    <p><strong>ゴミ出し</strong><br>可燃ゴミ: 月・木<br>不燃ゴミ: 第2・4水曜日<br>資源ゴミ: 火曜日</p>
+                                    <p><strong>エアコン</strong><br>リモコンは壁掛けにあります。22℃設定を推奨。</p>
+                                    <p><strong>お風呂</strong><br>追い焚き機能あり。使用後は換気扇を回してください。</p>
+                                    <p><strong>キッチン</strong><br>IHクッキングヒーター使用。使用可能な調味料は冷蔵庫内にあります。</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <button class="flex justify-between items-center w-full text-left" data-accordion="notifications">
+                                <span class="font-medium">通知設定</span>
+                                <i class="ri-arrow-down-s-line ri-lg"></i>
+                            </button>
+                            <div class="accordion-content hidden pt-4">
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700">予約リクエスト通知</span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700">チェックイン通知</span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700">チェックアウト通知</span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700">メッセージ通知</span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm text-gray-700">LINE通知連携</span>
+                                        <label class="switch">
+                                            <input type="checkbox" checked>
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- メッセージセクション -->
+            <section id="messages-section" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="flex h-[600px]">
+                        <!-- 左側：メッセージリスト -->
+                        <div class="w-1/3 border-r">
+                            <div class="p-4 border-b">
+                                <div class="relative">
+                                    <input type="text" placeholder="メッセージを検索" class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition text-sm">
+                                    <div class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 flex items-center justify-center">
+                                        <i class="ri-search-line text-gray-400"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-y-auto h-[calc(600px-65px)]">
+                                <div class="border-b hover:bg-gray-50 cursor-pointer">
+                                    <div class="p-4">
+                                        <div class="flex items-center mb-2">
+                                            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                                <i class="ri-user-line text-gray-600"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex justify-between">
+                                                    <h4 class="font-medium">佐藤健太</h4>
+                                                    <span class="text-xs text-gray-500">10:25</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-600 truncate flex-1">明日チェックインの件について...</span>
+                                                    <span class="ml-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">2</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="border-b bg-blue-50">
+                                    <div class="p-4">
+                                        <div class="flex items-center mb-2">
+                                            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                                <i class="ri-user-line text-gray-600"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex justify-between">
+                                                    <h4 class="font-medium">山田優子</h4>
+                                                    <span class="text-xs text-gray-500">昨日</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-600 truncate flex-1">鍵の受け取り方法を教えてください</span>
+                                                    <span class="ml-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">1</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="border-b hover:bg-gray-50 cursor-pointer">
+                                    <div class="p-4">
+                                        <div class="flex items-center mb-2">
+                                            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                                <i class="ri-user-line text-gray-600"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex justify-between">
+                                                    <h4 class="font-medium">鈴木一郎</h4>
+                                                    <span class="text-xs text-gray-500">6/20</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-600 truncate flex-1">予約リクエストを送りました</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="border-b hover:bg-gray-50 cursor-pointer">
+                                    <div class="p-4">
+                                        <div class="flex items-center mb-2">
+                                            <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                                <i class="ri-user-line text-gray-600"></i>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex justify-between">
+                                                    <h4 class="font-medium">田中花子</h4>
+                                                    <span class="text-xs text-gray-500">6/18</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <span class="text-sm text-gray-600 truncate flex-1">ありがとうございました！</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 右側：メッセージ詳細 -->
+                        <div class="w-2/3 flex flex-col">
+                            <div class="p-4 border-b flex items-center">
+                                <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                    <i class="ri-user-line text-gray-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium">山田優子</h4>
+                                    <p class="text-xs text-gray-500">最終ログイン: 今日 12:30</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                                <div class="flex justify-start">
+                                    <div class="message-bubble message-received">
+                                        <p>こんにちは、来週の予約について確認したいことがあります。</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex justify-end">
+                                    <div class="message-bubble message-sent">
+                                        <p>山田さん、こんにちは。どうぞ、何でも聞いてください。</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex justify-start">
+                                    <div class="message-bubble message-received">
+                                        <p>鍵の受け取り方法を教えていただけますか？</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center text-xs text-gray-500 my-2">
+                                    <span>6月24日 12:30</span>
+                                </div>
+                                
+                                <div class="flex justify-start">
+                                    <div class="message-bubble message-received">
+                                        <p>あと、Wi-Fiのパスワードも事前に教えていただけると助かります。</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="p-4 border-t">
+                                <div class="flex">
+                                    <div class="flex items-center mr-2">
+                                        <button class="p-2 rounded-full hover:bg-gray-100">
+                                            <i class="ri-image-line text-gray-600"></i>
+                                        </button>
+                                        <button class="p-2 rounded-full hover:bg-gray-100">
+                                            <i class="ri-attachment-2 text-gray-600"></i>
+                                        </button>
+                                    </div>
+                                    <input type="text" placeholder="メッセージを入力..." class="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
+                                    <button class="ml-2 p-2 bg-primary text-white rounded-full hover:bg-opacity-90 transition">
+                                        <i class="ri-send-plane-fill"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- カレンダー詳細モーダル -->
+    <div id="calendar-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 class="font-bold text-lg" id="modal-date">2025年6月15日</h3>
+                <button id="close-modal" class="p-2 rounded-full hover:bg-gray-100">
+                    <i class="ri-close-line ri-lg"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="modal-content" class="space-y-4">
+                    <div class="flex items-center p-3 border border-blue-200 rounded-lg bg-blue-50">
+                        <div class="w-2 h-10 bg-blue-500 rounded-full mr-4"></div>
+                        <div class="flex-1">
+                            <div class="flex justify-between">
+                                <p class="font-medium">佐藤健太</p>
+                                <p class="text-sm text-gray-600">6月15日〜6月17日</p>
+                            </div>
+                            <p class="text-sm text-gray-600">大学時代の友人</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">利用状況</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">利用不可</span>
+                            <label class="switch">
+                                <input type="checkbox" checked id="availability-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="text-sm">利用可能</span>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t">
+                        <h4 class="font-medium mb-2">メモ</h4>
+                        <textarea class="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" rows="3" placeholder="この日のメモを入力..."></textarea>
+                    </div>
+                </div>
+                
+                <div class="mt-6 flex justify-end gap-2">
+                    <button class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-button font-medium hover:bg-gray-50 transition whitespace-nowrap">キャンセル</button>
+                    <button class="px-4 py-2 bg-primary text-white rounded-button font-medium hover:bg-opacity-90 transition whitespace-nowrap">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script id="login-script">
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginPage = document.getElementById('login-page');
+            const app = document.getElementById('app');
+            const loginButton = document.getElementById('login-button');
+            const passcodeInput = document.getElementById('passcode');
+            
+            // 仮のパスコード
+            const correctPasscode = '1234';
+            
+            // ログイン状態をチェック
+            if (localStorage.getItem('isLoggedIn') === 'true') {
+                loginPage.classList.add('hidden');
+                app.classList.remove('hidden');
+            }
+            
+            loginButton.addEventListener('click', function() {
+                if (passcodeInput.value === correctPasscode) {
+                    // LocalStorageにログイン状態を保存
+                    localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('loginTime', new Date().toISOString());
+                    
+                    loginPage.classList.add('hidden');
+                    app.classList.remove('hidden');
+                } else {
+                    alert('パスコードが正しくありません。');
+                }
+            });
+            
+            passcodeInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    loginButton.click();
+                }
+            });
+        });
+    </script>
+
+    <script id="navigation-script">
+        document.addEventListener('DOMContentLoaded', function() {
+            const navTabs = document.querySelectorAll('.nav-tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            navTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // タブのアクティブ状態を更新
+                    navTabs.forEach(t => {
+                        t.classList.remove('tab-active');
+                        t.classList.add('text-gray-600');
+                    });
+                    this.classList.add('tab-active');
+                    this.classList.remove('text-gray-600');
+                    
+                    // コンテンツの表示を切り替え
+                    const tabName = this.getAttribute('data-tab');
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    document.getElementById(`${tabName}-section`).classList.remove('hidden');
+                });
+            });
+            
+            // 予約管理タブの切り替え
+            const reservationTabs = document.querySelectorAll('.reservation-tab');
+            const reservationContents = document.querySelectorAll('.reservation-content');
+            
+            reservationTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    reservationTabs.forEach(t => {
+                        t.classList.remove('tab-active');
+                        t.classList.add('text-gray-600');
+                    });
+                    this.classList.add('tab-active');
+                    this.classList.remove('text-gray-600');
+                    
+                    const tabName = this.getAttribute('data-reservation-tab');
+                    reservationContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+                });
+            });
+            
+            // アコーディオンの切り替え
+            const accordionButtons = document.querySelectorAll('[data-accordion]');
+            
+            accordionButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    const icon = this.querySelector('i');
+                    
+                    if (content.classList.contains('hidden')) {
+                        content.classList.remove('hidden');
+                        icon.classList.remove('ri-arrow-down-s-line');
+                        icon.classList.add('ri-arrow-up-s-line');
+                    } else {
+                        content.classList.add('hidden');
+                        icon.classList.remove('ri-arrow-up-s-line');
+                        icon.classList.add('ri-arrow-down-s-line');
+                    }
+                });
+            });
+            
+            // ログアウトボタン
+            const logoutButton = document.getElementById('logout-button');
+            
+            logoutButton.addEventListener('click', function() {
+                if (confirm('ログアウトしますか？')) {
+                    // LocalStorageからログイン情報を削除
+                    localStorage.removeItem('isLoggedIn');
+                    localStorage.removeItem('loginTime');
+                    
+                    document.getElementById('login-page').classList.remove('hidden');
+                    document.getElementById('app').classList.add('hidden');
+                    document.getElementById('passcode').value = '';
+                }
+            });
+        });
+    </script>
+
+    <script id="calendar-script">
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarGrid = document.getElementById('calendar-grid');
+            const currentMonthElement = document.getElementById('current-month');
+            const prevMonthButton = document.getElementById('prev-month');
+            const nextMonthButton = document.getElementById('next-month');
+            const calendarModal = document.getElementById('calendar-modal');
+            const closeModalButton = document.getElementById('close-modal');
+            const modalDate = document.getElementById('modal-date');
+            
+            let currentDate = new Date(2025, 5, 25); // 2025年6月25日
+            
+            // カレンダーを生成する関数
+            function generateCalendar(date) {
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                
+                // 月の最初の日の曜日を取得（0: 日曜日, 1: 月曜日, ...）
+                const firstDay = new Date(year, month, 1).getDay();
+                
+                // 月の最終日を取得
+                const lastDate = new Date(year, month + 1, 0).getDate();
+                
+                // 月の表示を更新
+                currentMonthElement.textContent = `${year}年${month + 1}月`;
+                
+                // カレンダーグリッドをクリア
+                calendarGrid.innerHTML = '';
+                
+                // 前月の日付を埋める
+                for (let i = 0; i < firstDay; i++) {
+                    const emptyDay = document.createElement('div');
+                    emptyDay.className = 'calendar-day unavailable opacity-30';
+                    calendarGrid.appendChild(emptyDay);
+                }
+                
+                // 予約データ（サンプル）
+                const reservations = [
+                    { start: new Date(2025, 5, 15), end: new Date(2025, 5, 17), guest: '佐藤健太' },
+                    { start: new Date(2025, 5, 22), end: new Date(2025, 5, 24), guest: '山田優子' }
+                ];
+                
+                // 利用不可の日（サンプル）
+                const unavailableDates = [1, 2, 8, 9, 15, 16, 22, 23, 29, 30];
+                
+                // 当月の日付を埋める
+                for (let i = 1; i <= lastDate; i++) {
+                    const day = document.createElement('div');
+                    day.className = 'calendar-day';
+                    day.textContent = i;
+                    
+                    const currentDateObj = new Date(year, month, i);
+                    
+                    // 予約済みかチェック
+                    let isReserved = false;
+                    for (const reservation of reservations) {
+                        if (currentDateObj >= reservation.start && currentDateObj <= reservation.end) {
+                            day.classList.add('reserved');
+                            isReserved = true;
+                            break;
+                        }
+                    }
+                    
+                    // 利用不可かチェック
+                    if (!isReserved) {
+                        if (unavailableDates.includes(i)) {
+                            day.classList.add('unavailable');
+                        } else {
+                            day.classList.add('available');
+                        }
+                    }
+                    
+                    // クリックイベントを追加
+                    day.addEventListener('click', function() {
+                        showModal(new Date(year, month, i));
+                    });
+                    
+                    calendarGrid.appendChild(day);
+                }
+            }
+            
+            // モーダルを表示する関数
+            function showModal(date) {
+                modalDate.textContent = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+                
+                // 予約情報を表示（サンプル）
+                const modalContent = document.getElementById('modal-content');
+                
+                // 日付に応じた内容を表示（サンプル）
+                if (date.getDate() === 15 || date.getDate() === 16 || date.getDate() === 17) {
+                    document.getElementById('availability-toggle').checked = false;
+                } else if (date.getDate() === 22 || date.getDate() === 23 || date.getDate() === 24) {
+                    document.getElementById('availability-toggle').checked = false;
+                } else if ([1, 2, 8, 9, 29, 30].includes(date.getDate())) {
+                    document.getElementById('availability-toggle').checked = false;
+                } else {
+                    document.getElementById('availability-toggle').checked = true;
+                }
+                
+                calendarModal.classList.remove('hidden');
+            }
+            
+            // 初期カレンダーを生成
+            generateCalendar(currentDate);
+            
+            // 前月ボタンのイベント
+            prevMonthButton.addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                generateCalendar(currentDate);
+            });
+            
+            // 次月ボタンのイベント
+            nextMonthButton.addEventListener('click', function() {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                generateCalendar(currentDate);
+            });
+            
+            // モーダルを閉じるイベント
+            closeModalButton.addEventListener('click', function() {
+                calendarModal.classList.add('hidden');
+            });
+            
+            // モーダル外クリックで閉じる
+            calendarModal.addEventListener('click', function(e) {
+                if (e.target === calendarModal) {
+                    calendarModal.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+
+    <!-- デバッグ用のボタンを追加 -->
+    <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
+        <button onclick="checkLoginStatus()" style="padding: 10px 20px; background: #333; color: white; border: none; border-radius: 5px; cursor: pointer;">
+            ログイン状態を確認
+        </button>
+    </div>
+
+    <script>
+        function checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            const loginTime = localStorage.getItem('loginTime');
+            
+            if (isLoggedIn === 'true') {
+                alert(`ログイン中\nログイン時刻: ${loginTime ? new Date(loginTime).toLocaleString('ja-JP') : '不明'}`);
+            } else {
+                alert('ログインしていません');
+            }
+        }
+    </script>
+</body>
+</html>
